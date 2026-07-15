@@ -362,7 +362,7 @@ onBeforeUnmount(() => {
 <style>
 .festival-map {
   width: 100%;
-  height: 620px;
+  height: 560px;
   overflow: hidden;
 
   border-radius: 18px;
@@ -388,7 +388,7 @@ onBeforeUnmount(() => {
   color: #ffffff;
   border: 3px solid #ffffff;
   border-radius: 50%;
-  background: #3165ff;
+  background: var(--lh-primary);
 
   font-size: 14px;
 
@@ -409,7 +409,7 @@ onBeforeUnmount(() => {
 
   border-right: 3px solid #ffffff;
   border-bottom: 3px solid #ffffff;
-  background: #3165ff;
+  background: var(--lh-primary);
 
   content: '';
   transform:
@@ -477,7 +477,7 @@ onBeforeUnmount(() => {
   width: 100%;
   height: 145px;
 
-  color: #3165ff;
+  color: var(--lh-primary);
 
   background:
     radial-gradient(
@@ -485,7 +485,7 @@ onBeforeUnmount(() => {
       rgba(49, 101, 255, 0.2),
       transparent 32%
     ),
-    #edf2ff;
+    var(--lh-primary-soft);
 
   font-size: 38px;
   place-items: center;
@@ -501,9 +501,9 @@ onBeforeUnmount(() => {
   margin-bottom: 8px;
   padding: 5px 9px;
 
-  color: #2757e6;
+  color: var(--lh-primary-strong);
   border-radius: 999px;
-  background: #edf2ff;
+  background: var(--lh-primary-soft);
 
   font-size: 10px;
   font-weight: 900;
@@ -565,7 +565,7 @@ onBeforeUnmount(() => {
 
 .festival-map
   .leaflet-control-zoom a {
-  color: #2757e6 !important;
+  color: var(--lh-primary-strong) !important;
 
   border-bottom-color:
     #e7ebf2 !important;
@@ -573,7 +573,7 @@ onBeforeUnmount(() => {
 
 @media (max-width: 800px) {
   .festival-map {
-    height: 520px;
+    height: 480px;
   }
 }
 </style>

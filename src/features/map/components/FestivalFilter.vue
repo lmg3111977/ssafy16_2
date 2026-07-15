@@ -106,7 +106,7 @@ const handleChange = (event: Event) => {
 }
 
 .festival-select-wrapper select:focus {
-  border-color: #3165ff;
+  border-color: var(--lh-primary);
   outline: none;
   box-shadow:
     0 0 0 4px rgba(49, 101, 255, 0.1);

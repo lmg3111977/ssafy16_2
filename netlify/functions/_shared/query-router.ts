@@ -43,7 +43,7 @@ const OUT_OF_SCOPE_PATTERNS = [
 ]
 
 const PROJECT_DATA_PATTERNS = [
-  /(서울|여행|관광|가볼|어디|추천|데이트|나들이|장소|지역)/,
+  /(서울|여행|관광|가볼|어디|추천|데이트|나들이|장소|지역|일정)/,
 ]
 
 export function routeChatQuestion(question: string): ChatRoute {

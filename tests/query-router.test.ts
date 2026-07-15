@@ -52,4 +52,8 @@ describe('챗봇 질문 라우터', () => {
       ],
     })
   })
+
+  it('고유 명칭과 일정 질문은 전체 프로젝트 데이터를 검색한다', () => {
+    expect(routeChatQuestion('문학주간 2026 일정 알려줘').kind).toBe('project-data')
+  })
 })

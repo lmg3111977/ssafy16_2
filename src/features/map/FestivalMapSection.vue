@@ -1,109 +1,132 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 
 import FestivalFilter from './components/FestivalFilter.vue'
 import FestivalMap from './components/FestivalMap.vue'
+import {
+  filterMapPlaces,
+  listDistricts,
+  loadCategoryPlaces,
+  MAP_CATEGORIES,
+  normalizeChatSources,
+} from './data'
+import type { ChatMapRequest, MapCategory, MapPlace } from './types'
 
-import festivalJson from '../../../netlify/functions/data/seoul-festivals.json'
-import { filterMapPlaces, normalizeDatasetItems } from './data'
-import type { RawMapDataset } from './types'
+const props = defineProps<{
+  chatMapRequest?: ChatMapRequest | null
+}>()
 
-// 불러온 JSON의 전체 구조를 FestivalDataset으로 지정
-const festivalData = festivalJson as RawMapDataset
-
-// 사용자가 선택한 필터값
+const sectionElement = ref<HTMLElement | null>(null)
+const sectionHeading = ref<HTMLElement | null>(null)
+const mode = ref<'browse' | 'chat'>('browse')
+const selectedCategory = ref<MapCategory>('festival')
+const categoryPlaces = ref<MapPlace[]>([])
+const chatPlaces = ref<MapPlace[]>([])
+const categoryLoading = ref(false)
+const categoryError = ref('')
 const selectedDistrict = ref('전체')
 const selectedStartDate = ref('')
 const selectedEndDate = ref('')
+let latestLoad = 0
 
-/*
- * 주소에서 자치구 이름 추출
- *
- * 서울특별시 종로구 대학로 104
- * → 종로구
- */
-const festivals = normalizeDatasetItems(festivalData.items, 'festival')
+const selectedCategoryLabel = computed(() => (
+  MAP_CATEGORIES.find(({ value }) => value === selectedCategory.value)?.label ?? '지역정보'
+))
 
-/*
- * 중복을 제거한 자치구 목록 생성
- *
- * 종로구, 강남구, 강남구
- * → 강남구, 종로구
- */
-const districts = [
-  ...new Set(
-    festivals
-      .map((festival) => {
-        return festival.district ?? '기타'
-      })
-      .filter((district) => {
-        return district !== '기타'
-      }),
-  ),
-].sort((a, b) => {
-  return a.localeCompare(b, 'ko-KR')
-})
+const districts = computed(() => listDistricts(categoryPlaces.value))
 
-/*
- * 날짜 입력창의 값:
- * 2026-07-16
- *
- * 축제 JSON의 값:
- * 20260716
- *
- * 비교할 수 있도록 하이픈 제거
- */
-/*
- * 시작일이 종료일보다 늦은지 확인
- */
-const isInvalidDateRange = computed(() => {
-  return Boolean(
-    selectedStartDate.value &&
-      selectedEndDate.value &&
-      selectedStartDate.value >
-        selectedEndDate.value,
-  )
-})
+const isInvalidDateRange = computed(() => Boolean(
+  selectedCategory.value === 'festival' &&
+  selectedStartDate.value &&
+  selectedEndDate.value &&
+  selectedStartDate.value > selectedEndDate.value,
+))
 
-/*
- * 필터가 하나라도 적용되어 있는지 확인
- */
-const hasActiveFilter = computed(() => {
-  return (
-    selectedDistrict.value !== '전체' ||
-    selectedStartDate.value !== '' ||
-    selectedEndDate.value !== ''
-  )
-})
+const hasActiveFilter = computed(() => (
+  selectedDistrict.value !== '전체' ||
+  (selectedCategory.value === 'festival' && (
+    selectedStartDate.value !== '' || selectedEndDate.value !== ''
+  ))
+))
 
-/*
- * 자치구와 기간을 모두 적용한 최종 축제 목록
- */
-const filteredFestivals = computed(() => {
-  if (isInvalidDateRange.value) {
-    return []
-  }
-
-  return filterMapPlaces(festivals, {
+const filteredPlaces = computed(() => {
+  if (isInvalidDateRange.value) return []
+  return filterMapPlaces(categoryPlaces.value, {
     district: selectedDistrict.value,
     startDate: selectedStartDate.value,
     endDate: selectedEndDate.value,
   })
 })
 
-/*
- * 필터 초기화
- */
-const resetFilters = () => {
+const visiblePlaces = computed(() => (
+  mode.value === 'chat' ? chatPlaces.value : filteredPlaces.value
+))
+
+const resultLabel = computed(() => (
+  mode.value === 'chat' ? '챗봇 추천 결과' : `${selectedCategoryLabel.value} 검색 결과`
+))
+
+async function selectCategory(category: MapCategory): Promise<void> {
+  const loadId = ++latestLoad
+  selectedCategory.value = category
+  mode.value = 'browse'
+  categoryLoading.value = true
+  categoryError.value = ''
+
+  try {
+    const places = await loadCategoryPlaces(category)
+    if (loadId === latestLoad) categoryPlaces.value = places
+  } catch {
+    if (loadId === latestLoad) {
+      categoryError.value = '지역정보를 불러오지 못했습니다. 다시 시도해 주세요.'
+    }
+  } finally {
+    if (loadId === latestLoad) categoryLoading.value = false
+  }
+}
+
+function resetFilters(): void {
   selectedDistrict.value = '전체'
   selectedStartDate.value = ''
   selectedEndDate.value = ''
 }
+
+function returnToBrowse(): void {
+  mode.value = 'browse'
+}
+
+function prefersReducedMotion(): boolean {
+  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+}
+
+watch(
+  () => props.chatMapRequest,
+  async (request) => {
+    if (!request) return
+    const places = normalizeChatSources(request.sources)
+    if (!places.length) return
+
+    chatPlaces.value = places
+    mode.value = 'chat'
+    await nextTick()
+    sectionHeading.value?.focus({ preventScroll: true })
+    sectionElement.value?.scrollIntoView({
+      behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+      block: 'start',
+    })
+  },
+  { immediate: true },
+)
+
+onMounted(() => {
+  void selectCategory(selectedCategory.value)
+})
 </script>
 
 <template>
   <section
     id="festivals"
+    ref="sectionElement"
     class="map-feature-section"
   >
     <!-- 제목 영역 -->
@@ -113,37 +136,59 @@ const resetFilters = () => {
           Seoul Festival Map
         </span>
 
-        <h2>
-          서울의 축제를
-          <strong>지도에서 찾아보세요.</strong>
+        <h2 ref="sectionHeading" tabindex="-1">
+          서울의 지역정보를
+          <strong>범주별로 찾아보세요.</strong>
         </h2>
 
         <p>
-          원하는 자치구와 기간을 선택하면
-          조건에 맞는 축제 위치만 지도에 표시됩니다.
+          범주 하나를 선택하면 중복을 제외한 장소를 지도에 표시합니다.
         </p>
       </div>
 
       <div class="map-feature-result">
-        <span>검색 결과</span>
+        <span>{{ resultLabel }}</span>
 
         <strong>
-          {{ filteredFestivals.length }}
+          {{ visiblePlaces.length }}
           <small>개</small>
         </strong>
 
         <p>
-          전체 {{ festivals.length }}개 행사
+          {{ mode === 'chat' ? '현재 답변의 추천 장소' : `전체 ${categoryPlaces.length}개 장소` }}
         </p>
       </div>
     </header>
 
-    <div class="map-feature-workspace">
+    <div class="map-category-bar" aria-label="지도 범주 선택">
+      <button
+        v-for="category in MAP_CATEGORIES"
+        :key="category.value"
+        type="button"
+        :aria-pressed="mode === 'browse' && selectedCategory === category.value"
+        @click="selectCategory(category.value)"
+      >
+        {{ category.label }}
+      </button>
+    </div>
+
+    <div v-if="mode === 'chat'" class="chat-map-notice">
+      <div>
+        <strong>챗봇 추천 장소를 표시하고 있습니다.</strong>
+        <span>질문 영역에 맞는 추천 {{ chatPlaces.length }}개</span>
+      </div>
+      <button type="button" @click="returnToBrowse">기존 지도로 돌아가기</button>
+    </div>
+
+    <div
+      class="map-feature-workspace"
+      :class="{ 'is-chat-mode': mode === 'chat' }"
+    >
       <!-- 필터 영역 -->
-      <div class="map-feature-filter-card">
+      <div v-if="mode === 'browse'" class="map-feature-filter-card">
       <div class="map-feature-filter-header">
         <div>
-          <span>축제 검색 조건</span>
+          <span>{{ selectedCategoryLabel }} 검색 조건</span>
 
           <strong>
             지역과 기간을 선택해 주세요.
@@ -168,7 +213,7 @@ const resetFilters = () => {
         />
 
         <!-- 시작일 필터 -->
-        <div class="map-feature-date-field">
+        <div v-if="selectedCategory === 'festival'" class="map-feature-date-field">
           <label for="festival-start-date">
             시작일
           </label>
@@ -188,7 +233,7 @@ const resetFilters = () => {
         </div>
 
         <!-- 종료일 필터 -->
-        <div class="map-feature-date-field">
+        <div v-if="selectedCategory === 'festival'" class="map-feature-date-field">
           <label for="festival-end-date">
             종료일
           </label>
@@ -214,6 +259,13 @@ const resetFilters = () => {
       >
         종료일은 시작일보다 빠를 수 없습니다.
       </p>
+      <p v-if="categoryLoading" class="map-feature-status" role="status">
+        지역정보를 불러오는 중입니다.
+      </p>
+      <div v-if="categoryError" class="map-feature-load-error" role="alert">
+        <span>{{ categoryError }}</span>
+        <button type="button" @click="selectCategory(selectedCategory)">다시 시도</button>
+      </div>
       </div>
 
       <!-- 지도 영역 -->
@@ -221,7 +273,7 @@ const resetFilters = () => {
       <div class="map-feature-card-header">
         <div>
           <span class="map-feature-live-dot"></span>
-          축제 위치
+          {{ mode === 'chat' ? '챗봇 추천 위치' : `${selectedCategoryLabel} 위치` }}
         </div>
 
         <span>
@@ -230,11 +282,14 @@ const resetFilters = () => {
       </div>
 
       <div class="map-feature-area">
-        <FestivalMap :places="filteredFestivals" />
+        <FestivalMap
+          :places="visiblePlaces"
+          :highlighted="mode === 'chat'"
+        />
 
         <!-- 검색 결과가 없을 때 -->
         <div
-          v-if="filteredFestivals.length === 0"
+          v-if="!categoryLoading && visiblePlaces.length === 0"
           class="map-feature-empty"
         >
           <span aria-hidden="true">
@@ -242,11 +297,11 @@ const resetFilters = () => {
           </span>
 
           <strong>
-            조건에 맞는 축제가 없습니다.
+            표시할 장소가 없습니다.
           </strong>
 
           <p>
-            지역이나 기간을 다시 선택해 주세요.
+            범주나 검색 조건을 다시 선택해 주세요.
           </p>
         </div>
       </div>
@@ -347,6 +402,84 @@ const resetFilters = () => {
   grid-template-columns: 320px minmax(0, 1fr);
   align-items: start;
   gap: 24px;
+}
+
+.map-feature-workspace.is-chat-mode {
+  grid-template-columns: 1fr;
+}
+
+.map-category-bar {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  margin-bottom: 18px;
+  padding: 4px;
+  scrollbar-width: thin;
+}
+
+.map-category-bar button,
+.chat-map-notice button,
+.map-feature-load-error button {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--lh-line);
+  border-radius: 999px;
+  color: var(--lh-muted);
+  background: var(--lh-card);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.map-category-bar button[aria-pressed='true'] {
+  border-color: var(--lh-primary);
+  color: #fff;
+  background: var(--lh-primary);
+}
+
+.map-category-bar button:focus-visible,
+.chat-map-notice button:focus-visible,
+.map-feature-load-error button:focus-visible {
+  outline: 3px solid rgba(49, 101, 255, 0.25);
+  outline-offset: 2px;
+}
+
+.chat-map-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+  padding: 16px 18px;
+  border: 1px solid #cad6ff;
+  border-radius: 16px;
+  background: #edf2ff;
+}
+
+.chat-map-notice div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chat-map-notice strong { color: var(--lh-ink); }
+.chat-map-notice span,
+.map-feature-status { color: var(--lh-muted); font-size: 12px; }
+
+.chat-map-notice button,
+.map-feature-load-error button {
+  color: var(--lh-primary-strong);
+  border-color: #cad6ff;
+}
+
+.map-feature-load-error {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  color: #9b2330;
+  font-size: 13px;
 }
 
 /* 필터 카드 */

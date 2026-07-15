@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   filterMapPlaces,
   isValidSeoulCoordinate,
+  listDistricts,
   MAP_CATEGORIES,
   normalizeChatSources,
   normalizeDatasetItems,
@@ -139,5 +140,15 @@ describe('map data', () => {
       startDate: '2026-07-15',
       endDate: '2026-07-16',
     })).toHaveLength(1)
+  })
+
+  it('lists unique districts in Korean order', () => {
+    const places = normalizeDatasetItems([
+      { contentid: '1', title: '종로', addr1: '서울특별시 종로구', mapx: '126.98', mapy: '37.57' },
+      { contentid: '2', title: '강남', addr1: '서울특별시 강남구', mapx: '127.03', mapy: '37.50' },
+      { contentid: '3', title: '종로 중복', addr1: '서울특별시 종로구', mapx: '126.99', mapy: '37.58' },
+    ], 'attraction')
+
+    expect(listDistricts(places)).toEqual(['강남구', '종로구'])
   })
 })

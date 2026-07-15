@@ -155,6 +155,14 @@ export function filterMapPlaces(places: MapPlace[], filters: MapFilters): MapPla
   })
 }
 
+export function listDistricts(places: MapPlace[]): string[] {
+  return [...new Set(
+    places
+      .map((place) => place.district)
+      .filter((district): district is string => Boolean(district)),
+  )].sort((left, right) => left.localeCompare(right, 'ko-KR'))
+}
+
 export async function loadCategoryPlaces(category: MapCategory): Promise<MapPlace[]> {
   const cached = categoryCache.get(category)
   if (cached) return cached

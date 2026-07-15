@@ -57,15 +57,17 @@ const quickQuestions = [
   '서울 여행 코스 알려줘',
 ]
 
-const messages = ref<ChatMessage[]>([
-  {
+function createWelcomeMessage(): ChatMessage {
+  return {
     id: createId(),
     role: 'assistant',
     content: props.welcomeMessage,
     createdAt: new Date(),
     mode: 'search',
-  },
-])
+  }
+}
+
+const messages = ref<ChatMessage[]>([createWelcomeMessage()])
 
 const widgetStyle = computed(() => ({
   '--chat-primary': props.primaryColor,
@@ -250,6 +252,17 @@ function retryLastQuestion(): void {
   if (lastFailedQuestion.value) {
     void sendQuestion(lastFailedQuestion.value, false)
   }
+}
+
+async function resetConversation(): Promise<void> {
+  activeController?.abort()
+  activeController = null
+  messages.value = [createWelcomeMessage()]
+  draft.value = ''
+  isLoading.value = false
+  errorMessage.value = ''
+  lastFailedQuestion.value = ''
+  await focusInput()
 }
 
 function handleKeydown(event: KeyboardEvent): void {
@@ -473,6 +486,14 @@ onBeforeUnmount(() => {
               </button>
             </div>
             <div class="composer-meta">
+              <button
+                v-if="messages.length > 1"
+                type="button"
+                class="reset-chat-button"
+                @click="resetConversation"
+              >
+                ↺ 처음으로
+              </button>
               <span>지역정보 답변은 제공된 서울 데이터만 참고합니다.</span>
               <span :class="{ 'is-over': remainingCharacters < 0 }">
                 {{ remainingCharacters }}
@@ -1073,6 +1094,14 @@ onBeforeUnmount(() => {
 .composer-meta .is-over {
   color: #c42b1c;
   font-weight: 700;
+}
+
+.reset-chat-button {
+  padding: 0;
+  cursor: pointer;
+  color: var(--chat-primary);
+  font-weight: 800;
+  background: transparent;
 }
 
 .launcher-wrap {

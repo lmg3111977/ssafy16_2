@@ -449,7 +449,8 @@ onMounted(() => {
 .chat-map-notice {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
+  flex-wrap: wrap;
   gap: 18px;
   margin-bottom: 18px;
   padding: 16px 18px;

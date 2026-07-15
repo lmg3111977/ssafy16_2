@@ -5,15 +5,11 @@ import FestivalFilter from './components/FestivalFilter.vue'
 import FestivalMap from './components/FestivalMap.vue'
 
 import festivalJson from '../../../netlify/functions/data/seoul-festivals.json'
-
-import type {
-  Festival,
-  FestivalDataset,
-} from './types'
+import { filterMapPlaces, normalizeDatasetItems } from './data'
+import type { RawMapDataset } from './types'
 
 // 불러온 JSON의 전체 구조를 FestivalDataset으로 지정
-const festivalData =
-  festivalJson as FestivalDataset
+const festivalData = festivalJson as RawMapDataset
 
 // 사용자가 선택한 필터값
 const selectedDistrict = ref('전체')
@@ -26,27 +22,7 @@ const selectedEndDate = ref('')
  * 서울특별시 종로구 대학로 104
  * → 종로구
  */
-const extractDistrict = (address = '') => {
-  const result = address.match(
-    /서울특별(?:시)?\s+([가-힣]+구)/,
-  )
-
-  return result ? result[1] : '기타'
-}
-
-/*
- * 원본 축제 데이터에 district 속성을 추가
- */
-const festivals: Festival[] =
-  festivalData.items.map((festival) => {
-    return {
-      ...festival,
-
-      district: extractDistrict(
-        festival.addr1 ?? '',
-      ),
-    }
-  })
+const festivals = normalizeDatasetItems(festivalData.items, 'festival')
 
 /*
  * 중복을 제거한 자치구 목록 생성
@@ -77,10 +53,6 @@ const districts = [
  *
  * 비교할 수 있도록 하이픈 제거
  */
-const normalizeInputDate = (date: string) => {
-  return date.replaceAll('-', '')
-}
-
 /*
  * 시작일이 종료일보다 늦은지 확인
  */
@@ -107,71 +79,15 @@ const hasActiveFilter = computed(() => {
 /*
  * 자치구와 기간을 모두 적용한 최종 축제 목록
  */
-const filteredFestivals = computed<Festival[]>(() => {
+const filteredFestivals = computed(() => {
   if (isInvalidDateRange.value) {
     return []
   }
 
-  const filterStart = normalizeInputDate(
-    selectedStartDate.value,
-  )
-
-  const filterEnd = normalizeInputDate(
-    selectedEndDate.value,
-  )
-
-  return festivals.filter((festival) => {
-    /*
-     * 1. 자치구 조건 확인
-     */
-    const districtMatched =
-      selectedDistrict.value === '전체' ||
-      festival.district ===
-        selectedDistrict.value
-
-    if (!districtMatched) {
-      return false
-    }
-
-    /*
-     * 날짜 필터가 없으면
-     * 자치구 조건만 통과한 축제를 표시
-     */
-    if (!filterStart && !filterEnd) {
-      return true
-    }
-
-    /*
-     * 날짜 정보가 없는 축제는
-     * 날짜 필터 사용 시 제외
-     */
-    if (!festival.eventstartdate) {
-      return false
-    }
-
-    const festivalStart =
-      festival.eventstartdate
-
-    const festivalEnd =
-      festival.eventenddate ||
-      festival.eventstartdate
-
-    /*
-     * 선택 기간과 축제 기간이
-     * 하루라도 겹치는지 확인
-     */
-    const startsBeforeSelectedEnd =
-      !filterEnd ||
-      festivalStart <= filterEnd
-
-    const endsAfterSelectedStart =
-      !filterStart ||
-      festivalEnd >= filterStart
-
-    return (
-      startsBeforeSelectedEnd &&
-      endsAfterSelectedStart
-    )
+  return filterMapPlaces(festivals, {
+    district: selectedDistrict.value,
+    startDate: selectedStartDate.value,
+    endDate: selectedEndDate.value,
   })
 })
 
@@ -314,9 +230,7 @@ const resetFilters = () => {
       </div>
 
       <div class="map-feature-area">
-        <FestivalMap
-          :festivals="filteredFestivals"
-        />
+        <FestivalMap :places="filteredFestivals" />
 
         <!-- 검색 결과가 없을 때 -->
         <div

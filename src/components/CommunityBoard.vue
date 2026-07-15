@@ -247,7 +247,7 @@ onMounted(() => {
                 <input v-model="deletePassword" type="password" />
               </label>
               <div class="form-actions">
-                <button @click="confirmDelete" :disabled="!deletePassword || isLoading">삭제</button>
+                <button class="danger" @click="confirmDelete" :disabled="!deletePassword || isLoading">삭제</button>
                 <button type="button" class="secondary" @click="closeDelete" :disabled="isLoading">취소</button>
               </div>
             </div>
@@ -262,23 +262,54 @@ onMounted(() => {
 
 <style scoped>
 .community-section {
-  width: min(1120px, calc(100% - 40px));
-  margin: 20px auto 0;
-  padding: 56px 0 90px;
+  width: min(var(--lh-content), calc(100% - 40px));
+  margin: 0 auto;
+  padding: 68px 0 90px;
+}
+
+.section-header {
+  margin-bottom: 24px;
+}
+
+.section-kicker {
+  color: var(--lh-primary);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.section-header h2 {
+  margin: 10px 0 12px;
+  color: var(--lh-ink);
+  font-size: clamp(30px, 4vw, 40px);
+  letter-spacing: -0.04em;
+}
+
+.section-header p {
+  margin: 0;
+  color: var(--lh-muted);
+  line-height: 1.7;
 }
 
 .community-grid {
   display: grid;
-  grid-template-columns: 1fr 1.2fr;
+  grid-template-columns: minmax(320px, 0.82fr) minmax(0, 1.18fr);
   gap: 24px;
 }
 
 .card-panel {
   padding: 24px;
-  border: 1px solid #e7ebf2;
-  border-radius: 24px;
-  background: #fff;
-  box-shadow: 0 18px 36px rgba(31, 51, 91, 0.06);
+  border: 1px solid var(--lh-line);
+  border-radius: var(--lh-radius-lg);
+  background: var(--lh-card);
+  box-shadow: var(--lh-shadow-soft);
+}
+
+.community-form {
+  align-self: start;
+  border-top: 4px solid var(--lh-primary);
+  background:
+    linear-gradient(180deg, var(--lh-primary-soft), #fff 130px);
 }
 
 .community-form h3,
@@ -294,7 +325,7 @@ onMounted(() => {
   gap: 10px;
   margin-bottom: 18px;
   font-size: 14px;
-  color: #3a4a63;
+  color: var(--lh-text);
 }
 
 .community-form input,
@@ -305,11 +336,22 @@ onMounted(() => {
   width: 100%;
   min-height: 44px;
   padding: 12px 14px;
-  border: 1px solid #d8dee8;
+  border: 1px solid var(--lh-line);
   border-radius: 14px;
-  background: #f9fbff;
+  background: var(--lh-card);
   font-size: 14px;
-  color: #172033;
+  color: var(--lh-ink);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.community-form input:focus,
+.community-form textarea:focus,
+.edit-panel input:focus,
+.edit-panel textarea:focus,
+.delete-panel input:focus {
+  border-color: var(--lh-primary);
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(49, 101, 255, 0.1);
 }
 
 .community-form textarea,
@@ -333,13 +375,17 @@ button {
   font-weight: 700;
   cursor: pointer;
   color: #fff;
-  background: #3165ff;
+  background: var(--lh-primary);
   transition: transform 0.18s ease, background 0.18s ease;
 }
 
 button.secondary {
   background: #e7ebf2;
   color: #2f3d55;
+}
+
+button.danger {
+  background: var(--lh-danger);
 }
 
 button:disabled {
@@ -368,20 +414,26 @@ button:not(:disabled):hover {
 
 .alert.error {
   background: #ffe9ea;
-  color: #9b2330;
+  color: var(--lh-danger);
 }
 
 .alert.success {
   background: #eaf7ec;
-  color: #1d6f31;
+  color: var(--lh-success);
 }
 
 .community-post {
   padding: 18px;
   margin-bottom: 18px;
-  border: 1px solid #edf1f7;
-  border-radius: 20px;
-  background: #fcfdff;
+  border: 1px solid var(--lh-line);
+  border-radius: var(--lh-radius-md);
+  background: var(--lh-card);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.community-post:hover {
+  border-color: #cad6ff;
+  box-shadow: 0 12px 28px rgba(31, 51, 91, 0.07);
 }
 
 .post-meta {
@@ -398,7 +450,7 @@ button:not(:disabled):hover {
 
 .post-content {
   margin: 0 0 18px;
-  color: #4a5568;
+  color: var(--lh-text);
   line-height: 1.8;
   white-space: pre-wrap;
 }
@@ -412,17 +464,24 @@ button:not(:disabled):hover {
 .delete-panel {
   margin-top: 18px;
   padding: 18px;
-  border-top: 1px solid #e7ebf2;
+  border: 1px solid #dce5ff;
+  border-radius: 14px;
+  background: var(--lh-primary-soft);
 }
 
 .hint,
 .empty-state {
   margin: 18px 0 0;
-  color: #5b6a82;
+  color: var(--lh-muted);
   font-size: 13px;
 }
 
 @media (max-width: 900px) {
+  .community-section {
+    width: min(100% - 24px, var(--lh-content));
+    padding: 46px 0 64px;
+  }
+
   .community-grid {
     grid-template-columns: 1fr;
   }

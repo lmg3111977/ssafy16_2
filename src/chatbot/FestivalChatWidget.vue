@@ -475,13 +475,13 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .festival-chat {
-  --chat-primary: #3165ff;
+  --chat-primary: var(--lh-primary, #3165ff);
   --chat-z-index: 1200;
   position: fixed;
   right: max(22px, env(safe-area-inset-right));
   bottom: max(22px, env(safe-area-inset-bottom));
   z-index: var(--chat-z-index);
-  color: #172033;
+  color: var(--lh-ink, #172033);
   font-family:
     Inter, Pretendard, "Noto Sans KR", system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
@@ -507,12 +507,10 @@ onBeforeUnmount(() => {
   width: min(390px, calc(100vw - 32px));
   height: min(620px, calc(100vh - 126px));
   overflow: hidden;
-  border: 1px solid rgba(32, 54, 92, 0.12);
-  border-radius: 22px;
-  background: #fff;
-  box-shadow:
-    0 26px 70px rgba(24, 43, 77, 0.2),
-    0 8px 24px rgba(24, 43, 77, 0.12);
+  border: 1px solid var(--lh-line, rgba(32, 54, 92, 0.12));
+  border-radius: var(--lh-radius-lg, 24px);
+  background: var(--lh-card, #fff);
+  box-shadow: var(--lh-shadow-float, 0 28px 72px rgba(31, 51, 91, 0.18));
 }
 
 .chat-header {

@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.netlify/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+.vscode/
+.idea/
+coverage/
+
+# Restored losslessly from data-archive during npm install/build.
+netlify/functions/data/seoul-festivals.json

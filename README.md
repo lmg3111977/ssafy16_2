@@ -27,21 +27,6 @@
 
 브라우저에는 `OPENAI_API_KEY`가 전달되지 않습니다.
 
-## MVP에 포함된 기능
-
-- 우측 하단 플로팅 챗봇 이미지
-- 데스크톱 상담 패널 및 모바일 전체 화면 UI
-- Enter 전송, Shift+Enter 줄바꿈, Esc 닫기
-- 중복 전송 방지 및 요청 취소
-- 질문 최대 300자 제한
-- 축제명·월·자치구·무료·오늘·주말·예정 행사 검색
-- 검색 결과가 없으면 LLM 호출 생략
-- API 키가 없거나 OpenAI 호출이 실패해도 JSON 검색 답변 제공
-- 답변 근거가 된 축제 카드 표시
-- IP 기준 Netlify Rate Limit
-- TypeScript 검사, 단위 테스트, 프로덕션 빌드
-- 기존 Vue 3 프로젝트에 복사 가능한 독립 모듈 구조
-
 ## 빠른 실행
 
 ```bash
@@ -50,7 +35,7 @@ cp .env.example .env
 npm run dev:netlify
 ```
 
-Windows PowerShell에서는 `Copy-Item .env.example .env`를 사용합니다. `.env`에 실제 `OPENAI_API_KEY`를 입력하되 `VITE_` 접두사는 사용하지 않습니다. API 키가 없어도 JSON 검색 모드로 동작합니다.
+Windows PowerShell에서는 `Copy-Item .env.example .env`를 사용합니다. `.env`에는 실제 `OPENAI_API_KEY`를 입력하되 `VITE_` 접두사는 사용하지 않습니다. API 키가 없어도 JSON 검색 모드로 동작합니다.
 
 전체 검증:
 
@@ -73,7 +58,7 @@ import { FestivalChatbot } from '@/features/chatbot'
 </template>
 ```
 
-상세 설정·보안·Netlify 배포·통합 체크리스트는 저장소의 전체 README와 `docs/` 문서를 확인하세요.
+상세 설정과 통합 체크리스트는 `docs/` 문서를 확인하세요.
 
 ## 데이터
 

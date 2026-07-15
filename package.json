@@ -1,0 +1,33 @@
+{
+  "name": "localhub-chatbot-mvp",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:netlify": "npx --yes netlify-cli@latest dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "vue-tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.functions.json",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm run test && npm run build",
+    "restore:data": "node scripts/restore-data.mjs",
+    "postinstall": "npm run restore:data",
+    "pretypecheck": "npm run restore:data",
+    "pretest": "npm run restore:data",
+    "prebuild": "npm run restore:data"
+  },
+  "dependencies": {
+    "@netlify/functions": "^5.3.0",
+    "openai": "^6.47.0",
+    "vue": "^3.5.39"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "typescript": "^5.9.3",
+    "vite": "^8.1.4",
+    "vitest": "^4.1.10",
+    "vue-tsc": "^3.3.7"
+  }
+}

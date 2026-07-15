@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { askFestivalChat, FestivalChatApiError } from './api'
 import { readPublicCommunityContext } from './community-context'
 import { normalizeChatSuggestions } from './suggestions'
+import { hasMappableSources } from './map-sources'
 import ChatBotIcon from './ChatBotIcon.vue'
 import type { ChatContext, ChatMessage, LocalHubSource, LocalHubSourceType } from './types'
 
@@ -32,6 +33,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   open: []
   close: []
+  'map-request': [sources: LocalHubSource[]]
 }>()
 
 const isOpen = ref(props.initiallyOpen)
@@ -396,6 +398,15 @@ onBeforeUnmount(() => {
                   </div>
                 </details>
 
+                <button
+                  v-if="hasMappableSources(message.sources)"
+                  type="button"
+                  class="show-on-map-button"
+                  @click="emit('map-request', message.sources ?? [])"
+                >
+                  지도에서 보기
+                </button>
+
                 <time :datetime="message.createdAt.toISOString()">
                   {{ formatTime(message.createdAt) }}
                 </time>
@@ -753,6 +764,28 @@ onBeforeUnmount(() => {
   font-size: 11px;
   font-weight: 700;
   list-style-position: inside;
+}
+
+.show-on-map-button {
+  min-height: 44px;
+  width: 100%;
+  cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--chat-primary) 32%, #dce3ef);
+  border-radius: 12px;
+  color: var(--chat-primary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  background: color-mix(in srgb, var(--chat-primary) 7%, #fff);
+}
+
+.show-on-map-button:hover {
+  border-color: var(--chat-primary);
+}
+
+.show-on-map-button:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--chat-primary) 24%, transparent);
+  outline-offset: 2px;
 }
 
 .source-list {

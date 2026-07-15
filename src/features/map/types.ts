@@ -1,38 +1,48 @@
-// 축제 한 건의 데이터 구조
-export interface Festival {
-  contentid: string
-  title: string
+import type { LocalHubSource } from '../../../shared/chat-contract'
 
-  addr1?: string
-  addr2?: string
-  eventplace?: string
+export type MapPlaceType = Exclude<LocalHubSource['type'], 'community'>
+export type MapCategory = Exclude<MapPlaceType, 'shopping'>
 
-  // JSON에서는 좌표가 문자열로 저장되어 있음
-  mapx?: string
-  mapy?: string
-
-  firstimage?: string
-  firstimage2?: string
-
-  eventstartdate?: string
-  eventenddate?: string
-
-  playtime?: string
-  program?: string
-
-  tel?: string
-  agelimit?: string
-  usetimefestival?: string
-
-  // 주소에서 별도로 추출하여 추가할 값
-  district?: string
+export interface RawMapItem {
+  contentid?: string | null
+  title?: string | null
+  addr1?: string | null
+  addr2?: string | null
+  mapx?: string | number | null
+  mapy?: string | number | null
+  firstimage?: string | null
+  eventstartdate?: string | null
+  eventenddate?: string | null
+  eventplace?: string | null
+  usetimefestival?: string | null
 }
 
-// JSON 파일 전체의 구조
-export interface FestivalDataset {
-  region: string
-  contentType: string
-  contentTypeId: number
-  total: number
-  items: Festival[]
+export interface RawMapDataset {
+  items: RawMapItem[]
+}
+
+export interface MapPlace {
+  id: string
+  type: MapPlaceType
+  title: string
+  address: string | null
+  district: string | null
+  latitude: number
+  longitude: number
+  imageUrl: string | null
+  startDate: string | null
+  endDate: string | null
+  eventPlace: string | null
+  fee: string | null
+}
+
+export interface MapFilters {
+  district: string
+  startDate: string
+  endDate: string
+}
+
+export interface ChatMapRequest {
+  id: string
+  sources: LocalHubSource[]
 }

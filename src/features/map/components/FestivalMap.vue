@@ -9,12 +9,14 @@ import {
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
-import type { Festival } from '../types'
+import type { MapPlace } from '../types'
 
-// 부모 컴포넌트에서 필터링된 축제 배열을 전달받음
-const props = defineProps<{
-  festivals: Festival[]
-}>()
+const props = withDefaults(defineProps<{
+  places: MapPlace[]
+  highlighted?: boolean
+}>(), {
+  highlighted: false,
+})
 
 // template의 지도 div를 가리키는 변수
 const mapContainer = ref<HTMLElement | null>(null)
@@ -33,24 +35,25 @@ const SEOUL_CENTER: L.LatLngExpression = [
 
 const SEOUL_ZOOM = 11
 
-/*
- * Leaflet 기본 마커 이미지는 Vite 환경에서
- * 이미지 경로 문제가 생길 수 있으므로
- * HTML과 CSS로 직접 마커를 만듦
- */
-const festivalIcon = L.divIcon({
-  className: 'festival-marker-shell',
+const markerColors: Record<MapPlace['type'], string> = {
+  festival: '#d9465f',
+  attraction: '#3165ff',
+  culture: '#7c3aed',
+  leisure: '#0f9f77',
+  accommodation: '#ea7c19',
+  shopping: '#d43c93',
+  course: '#2276a5',
+}
 
-  html: `
-    <div class="festival-marker">
-      <span>★</span>
-    </div>
-  `,
-
-  iconSize: [38, 46],
-  iconAnchor: [19, 46],
-  popupAnchor: [0, -42],
-})
+const typeLabels: Record<MapPlace['type'], string> = {
+  festival: '축제·행사',
+  attraction: '관광지',
+  culture: '문화시설',
+  leisure: '레포츠',
+  accommodation: '숙박',
+  shopping: '쇼핑',
+  course: '여행 코스',
+}
 
 /*
  * 팝업 HTML 안에 외부 데이터를 직접 넣기 전에
@@ -113,8 +116,8 @@ const isValidSeoulCoordinate = (
 }
 
 // 마커 클릭 시 나타날 팝업 HTML
-const createPopupContent = (festival: Festival) => {
-  const imageArea = festival.firstimage
+const createPopupContent = (place: MapPlace) => {
+  const imageArea = place.imageUrl
     ? `
       <div class="festival-popup-image-area">
         <div class="festival-popup-placeholder">
@@ -122,8 +125,8 @@ const createPopupContent = (festival: Festival) => {
         </div>
 
         <img
-          src="${escapeHtml(festival.firstimage)}"
-          alt="${escapeHtml(festival.title)}"
+          src="${escapeHtml(place.imageUrl ?? '')}"
+          alt="${escapeHtml(place.title)}"
           onerror="this.style.display='none'"
         />
       </div>
@@ -134,14 +137,17 @@ const createPopupContent = (festival: Festival) => {
       </div>
     `
 
-  const place =
-    festival.eventplace ||
-    festival.addr1 ||
+  const location =
+    place.eventPlace ||
+    place.address ||
     '장소 정보 없음'
 
-  const price =
-    festival.usetimefestival ||
-    '요금 정보 없음'
+  const period = place.startDate
+    ? `<p><span>📅</span><span>${formatPeriod(place.startDate, place.endDate ?? undefined)}</span></p>`
+    : ''
+  const price = place.fee
+    ? `<p><span>🎫</span><span>${escapeHtml(place.fee)}</span></p>`
+    : ''
 
   return `
     <article class="festival-popup">
@@ -149,37 +155,24 @@ const createPopupContent = (festival: Festival) => {
 
       <div class="festival-popup-body">
         <span class="festival-popup-badge">
-          서울 축제
+          ${typeLabels[place.type]}
         </span>
 
         <strong class="festival-popup-title">
-          ${escapeHtml(festival.title)}
+          ${escapeHtml(place.title)}
         </strong>
 
         <div class="festival-popup-info">
-          <p>
-            <span>📅</span>
-            <span>
-              ${formatPeriod(
-                festival.eventstartdate,
-                festival.eventenddate,
-              )}
-            </span>
-          </p>
+          ${period}
 
           <p>
             <span>📍</span>
             <span>
-              ${escapeHtml(place)}
+              ${escapeHtml(location)}
             </span>
           </p>
 
-          <p>
-            <span>🎫</span>
-            <span>
-              ${escapeHtml(price)}
-            </span>
-          </p>
+          ${price}
         </div>
       </div>
     </article>
@@ -205,36 +198,20 @@ const renderMarkers = (
 
   const bounds: L.LatLngExpression[] = []
 
-  props.festivals.forEach((festival) => {
-    /*
-     * JSON의 좌표값은 문자열이므로
-     * Number()로 숫자로 변환
-     *
-     * mapy = 위도
-     * mapx = 경도
-     */
-    const latitude = Number(festival.mapy)
-    const longitude = Number(festival.mapx)
-
-    if (
-      !isValidSeoulCoordinate(
-        latitude,
-        longitude,
-      )
-    ) {
-      return
-    }
-
-    const marker = L.marker(
-      [latitude, longitude],
+  props.places.forEach((place) => {
+    const marker = L.circleMarker(
+      [place.latitude, place.longitude],
       {
-        icon: festivalIcon,
-        title: festival.title,
+        radius: props.highlighted ? 10 : 7,
+        color: '#ffffff',
+        weight: props.highlighted ? 3 : 2,
+        fillColor: markerColors[place.type],
+        fillOpacity: 0.9,
       },
     )
 
     marker.bindPopup(
-      createPopupContent(festival),
+      createPopupContent(place),
       {
         minWidth: 260,
         maxWidth: 290,
@@ -243,7 +220,7 @@ const renderMarkers = (
 
     marker.addTo(currentMarkerLayer)
 
-    bounds.push([latitude, longitude])
+    bounds.push([place.latitude, place.longitude])
   })
 
   /*
@@ -289,6 +266,7 @@ onMounted(() => {
     {
       center: SEOUL_CENTER,
       zoom: SEOUL_ZOOM,
+      preferCanvas: true,
 
       // 너무 멀리 축소되는 것 방지
       minZoom: 10,
@@ -336,7 +314,7 @@ onMounted(() => {
  * 이후 자치구·기간 필터와 연결하면 실행됨
  */
 watch(
-  () => props.festivals,
+  [() => props.places, () => props.highlighted],
   () => {
     renderMarkers(true)
   },
@@ -355,7 +333,7 @@ onBeforeUnmount(() => {
   <div
     ref="mapContainer"
     class="festival-map"
-    aria-label="서울 축제 위치 지도"
+    aria-label="서울 지역정보 위치 지도"
   ></div>
 </template>
 

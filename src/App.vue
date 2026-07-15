@@ -7,6 +7,8 @@ import type { AppView } from './navigation/view-state'
 import CommunityView from './views/CommunityView.vue'
 import ExploreView from './views/ExploreView.vue'
 import HomeView from './views/HomeView.vue'
+import type { ChatMapRequest } from './features/map/types'
+import type { LocalHubSource } from '../shared/chat-contract'
 
 const activeView = ref<AppView>(
   typeof window === 'undefined' ? 'home' : parseViewHash(window.location.hash),
@@ -15,6 +17,22 @@ const activeView = ref<AppView>(
 const previewChatOpen =
   typeof window !== 'undefined' &&
   new URLSearchParams(window.location.search).get('chat') === 'open'
+
+const chatMapRequest = ref<ChatMapRequest | null>(null)
+
+function createRequestId(): string {
+  return typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
+function showChatRecommendations(sources: LocalHubSource[]): void {
+  chatMapRequest.value = {
+    id: createRequestId(),
+    sources,
+  }
+  navigate('explore')
+}
 
 function navigate(view: AppView): void {
   activeView.value = view
@@ -43,7 +61,10 @@ onBeforeUnmount(() => {
 
     <main>
       <HomeView v-if="activeView === 'home'" @navigate="navigate" />
-      <ExploreView v-else-if="activeView === 'explore'" />
+      <ExploreView
+        v-else-if="activeView === 'explore'"
+        :chat-map-request="chatMapRequest"
+      />
       <CommunityView v-else />
     </main>
 
@@ -63,6 +84,7 @@ onBeforeUnmount(() => {
     subtitle="공공데이터 기반 상담 챗봇"
     primary-color="#3165ff"
     :initially-open="previewChatOpen"
+    @map-request="showChatRecommendations"
   />
 </template>
 

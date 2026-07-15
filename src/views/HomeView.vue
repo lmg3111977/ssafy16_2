@@ -6,10 +6,10 @@ const emit = defineEmits<{
 }>()
 
 const stats = [
-  { value: '6,518', label: '서울 지역정보' },
-  { value: '201', label: '축제·공연·행사' },
-  { value: '7', label: '제공 데이터 유형' },
-  { value: '25', label: '서울 자치구' },
+  { value: '783', label: '관광지' },
+  { value: '201', label: '축제·행사' },
+  { value: '566', label: '문화시설' },
+  { value: '423', label: '숙박' },
 ]
 </script>
 

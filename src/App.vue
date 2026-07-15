@@ -65,7 +65,7 @@ const previewChatOpen =
   </main>
 
   <FestivalChatWidget
-    title="서울 축제 ChatLLM"
+    title="서울 LocalHub ChatLLM"
     subtitle="공공데이터 기반 상담 챗봇"
     primary-color="#3165ff"
     :initially-open="previewChatOpen"

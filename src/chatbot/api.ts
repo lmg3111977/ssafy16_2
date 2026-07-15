@@ -1,4 +1,5 @@
 import type {
+  ChatContext,
   FestivalChatErrorBody,
   FestivalChatRequest,
   FestivalChatResponse,
@@ -19,18 +20,45 @@ export class FestivalChatApiError extends Error {
 export async function askFestivalChat(
   endpoint: string,
   question: string,
+  context?: ChatContext,
+  timeoutMs = 15_000,
   signal?: AbortSignal,
 ): Promise<FestivalChatResponse> {
-  const payload: FestivalChatRequest = { question }
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    body: JSON.stringify(payload),
-    signal,
-  })
+  const payload: FestivalChatRequest = { question, context }
+  const controller = new AbortController()
+  let timedOut = false
+  const abortFromCaller = () => controller.abort(signal?.reason)
+  if (signal?.aborted) abortFromCaller()
+  else signal?.addEventListener('abort', abortFromCaller, { once: true })
+  const timer = setTimeout(() => {
+    timedOut = true
+    controller.abort()
+  }, timeoutMs)
+
+  let response: Response
+  try {
+    response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    })
+  } catch (error) {
+    if (timedOut) {
+      throw new FestivalChatApiError(
+        '응답 시간이 초과되었습니다.',
+        408,
+        'REQUEST_TIMEOUT',
+      )
+    }
+    throw error
+  } finally {
+    clearTimeout(timer)
+    signal?.removeEventListener('abort', abortFromCaller)
+  }
 
   if (!response.ok) {
     let body: FestivalChatErrorBody = {}

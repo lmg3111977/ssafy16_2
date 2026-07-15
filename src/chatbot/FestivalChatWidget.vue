@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { askFestivalChat, FestivalChatApiError } from './api'
+import { readPublicCommunityContext } from './community-context'
+import { normalizeChatSuggestions } from './suggestions'
 import ChatBotIcon from './ChatBotIcon.vue'
-import type { ChatMessage, FestivalSource } from './types'
+import type { ChatContext, ChatMessage, LocalHubSource, LocalHubSourceType } from './types'
 
 interface Props {
   apiEndpoint?: string
@@ -17,10 +19,10 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   apiEndpoint: '/api/chat',
-  title: '서울 축제 ChatLLM',
+  title: '서울 LocalHub ChatLLM',
   subtitle: '공공데이터 기반 상담 챗봇',
   welcomeMessage:
-    '안녕하세요! 서울 축제·공연·행사 정보를 찾아드릴게요. 축제명, 날짜, 지역, 무료 여부를 물어보세요.',
+    '안녕하세요! 서울 관광지, 문화시설, 숙박, 쇼핑, 여행 코스, 축제·행사와 커뮤니티 이용을 도와드릴게요.',
   primaryColor: '#3165ff',
   zIndex: 1200,
   initiallyOpen: false,
@@ -36,6 +38,7 @@ const isOpen = ref(props.initiallyOpen)
 const draft = ref('')
 const isLoading = ref(false)
 const errorMessage = ref('')
+const lastFailedQuestion = ref('')
 const inputRef = ref<HTMLTextAreaElement | null>(null)
 const messagesRef = ref<HTMLElement | null>(null)
 let activeController: AbortController | null = null
@@ -48,8 +51,8 @@ function createId(): string {
 
 const quickQuestions = [
   '오늘 진행 중인 축제 알려줘',
-  '이번 달 무료 축제 알려줘',
-  '종로구 축제 찾아줘',
+  '서울 호텔 추천해줘',
+  '서울 여행 코스 알려줘',
 ]
 
 const messages = ref<ChatMessage[]>([
@@ -80,20 +83,29 @@ function formatTime(date: Date): string {
   }).format(date)
 }
 
-function formatDateRange(source: FestivalSource): string {
+function formatDateRange(source: LocalHubSource): string {
   if (!source.startDate && !source.endDate) return '일정 정보 없음'
   if (source.startDate === source.endDate) return source.startDate ?? '일정 정보 없음'
   return `${source.startDate ?? '미정'} ~ ${source.endDate ?? '미정'}`
 }
 
-function statusLabel(source: FestivalSource): string {
-  const labels: Record<FestivalSource['status'], string> = {
+function statusLabel(source: LocalHubSource): string {
+  const labels: Record<LocalHubSource['status'], string> = {
     ongoing: '진행 중',
     upcoming: '예정',
     ended: '종료',
     unknown: '일정 미상',
   }
   return labels[source.status]
+}
+
+function typeLabel(type: LocalHubSourceType): string {
+  const labels: Record<LocalHubSourceType, string> = {
+    festival: '축제·행사', attraction: '관광지', culture: '문화시설',
+    leisure: '레포츠', accommodation: '숙박', shopping: '쇼핑',
+    course: '여행 코스', community: '커뮤니티',
+  }
+  return labels[type]
 }
 
 async function scrollToLatest(): Promise<void> {
@@ -135,9 +147,10 @@ function createUserMessage(content: string): ChatMessage {
 
 function createAssistantMessage(
   content: string,
-  sources: FestivalSource[] = [],
+  sources: LocalHubSource[] = [],
   mode: ChatMessage['mode'] = 'llm',
   warning?: string,
+  suggestions: string[] = [],
 ): ChatMessage {
   return {
     id: createId(),
@@ -146,11 +159,32 @@ function createAssistantMessage(
     sources,
     mode,
     warning,
+    suggestions,
     createdAt: new Date(),
   }
 }
 
-async function sendQuestion(questionOverride?: string): Promise<void> {
+function buildContext(question: string): ChatContext {
+  let recent = messages.value
+    .filter((message, index) => !(index === 0 && message.role === 'assistant'))
+    .map(({ role, content }) => ({ role, content }))
+  if (recent.at(-1)?.role === 'user' && recent.at(-1)?.content === question) {
+    recent = recent.slice(0, -1)
+  }
+
+  const previousSources = [...messages.value]
+    .reverse()
+    .find((message) => message.role === 'assistant' && message.sources?.length)
+    ?.sources
+
+  return {
+    recentMessages: recent.slice(-4),
+    sourceIds: previousSources?.slice(0, 5).map((source) => source.contentId) ?? [],
+    communityPosts: readPublicCommunityContext('localhub-community-posts'),
+  }
+}
+
+async function sendQuestion(questionOverride?: string, appendUser = true): Promise<void> {
   const question = (questionOverride ?? draft.value).trim()
   if (!question || isLoading.value) return
 
@@ -161,7 +195,8 @@ async function sendQuestion(questionOverride?: string): Promise<void> {
 
   errorMessage.value = ''
   draft.value = ''
-  messages.value.push(createUserMessage(question))
+  const context = buildContext(question)
+  if (appendUser) messages.value.push(createUserMessage(question))
   isLoading.value = true
   await scrollToLatest()
 
@@ -172,6 +207,8 @@ async function sendQuestion(questionOverride?: string): Promise<void> {
     const result = await askFestivalChat(
       props.apiEndpoint,
       question,
+      context,
+      15_000,
       activeController.signal,
     )
 
@@ -181,8 +218,11 @@ async function sendQuestion(questionOverride?: string): Promise<void> {
         result.sources,
         result.meta.mode,
         result.warning,
+        normalizeChatSuggestions(result.suggestions),
       ),
     )
+    messages.value = messages.value.slice(-50)
+    lastFailedQuestion.value = ''
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') return
 
@@ -191,14 +231,22 @@ async function sendQuestion(questionOverride?: string): Promise<void> {
         error.status === 429
           ? '요청이 많습니다. 잠시 후 다시 시도해 주세요.'
           : error.message
+      if (error.code === 'REQUEST_TIMEOUT') lastFailedQuestion.value = question
     } else {
       errorMessage.value = '일시적인 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.'
+      lastFailedQuestion.value = question
     }
   } finally {
     isLoading.value = false
     activeController = null
     await scrollToLatest()
     void focusInput()
+  }
+}
+
+function retryLastQuestion(): void {
+  if (lastFailedQuestion.value) {
+    void sendQuestion(lastFailedQuestion.value, false)
   }
 }
 
@@ -237,7 +285,7 @@ onBeforeUnmount(() => {
           id="festival-chat-dialog"
           class="chat-panel"
           role="dialog"
-          aria-label="서울 축제 상담 챗봇"
+          aria-label="서울 지역정보 상담 챗봇"
           aria-modal="false"
           @keydown="handleKeydown"
         >
@@ -282,6 +330,18 @@ onBeforeUnmount(() => {
                   {{ message.warning }}
                 </p>
 
+                <div v-if="message.suggestions?.length" class="suggested-questions">
+                  <button
+                    v-for="suggestion in message.suggestions"
+                    :key="suggestion"
+                    type="button"
+                    :disabled="isLoading"
+                    @click="sendQuestion(suggestion)"
+                  >
+                    {{ suggestion }}
+                  </button>
+                </div>
+
                 <details
                   v-if="showSources && message.sources?.length"
                   class="sources"
@@ -303,12 +363,18 @@ onBeforeUnmount(() => {
                       <div class="source-content">
                         <div class="source-title-row">
                           <strong>{{ source.title }}</strong>
-                          <span :class="`status-${source.status}`">
-                            {{ statusLabel(source) }}
-                          </span>
+                          <div class="source-badges">
+                            <span class="type-badge">{{ typeLabel(source.type) }}</span>
+                            <span
+                              v-if="source.status !== 'unknown'"
+                              :class="`status-${source.status}`"
+                            >
+                              {{ statusLabel(source) }}
+                            </span>
+                          </div>
                         </div>
                         <dl>
-                          <div>
+                          <div v-if="source.startDate || source.endDate">
                             <dt>기간</dt>
                             <dd>{{ formatDateRange(source) }}</dd>
                           </div>
@@ -319,6 +385,10 @@ onBeforeUnmount(() => {
                           <div v-if="source.fee">
                             <dt>요금</dt>
                             <dd>{{ source.fee }}</dd>
+                          </div>
+                          <div v-if="source.summary">
+                            <dt>요약</dt>
+                            <dd>{{ source.summary }}</dd>
                           </div>
                         </dl>
                       </div>
@@ -355,9 +425,17 @@ onBeforeUnmount(() => {
             </button>
           </div>
 
-          <p v-if="errorMessage" class="error-message" role="alert">
-            {{ errorMessage }}
-          </p>
+          <div v-if="errorMessage" class="error-message" role="alert">
+            <span>{{ errorMessage }}</span>
+            <button
+              v-if="lastFailedQuestion"
+              type="button"
+              :disabled="isLoading"
+              @click="retryLastQuestion"
+            >
+              다시 시도
+            </button>
+          </div>
 
           <footer class="chat-composer">
             <div class="composer-box">
@@ -366,7 +444,7 @@ onBeforeUnmount(() => {
                 v-model="draft"
                 rows="1"
                 maxlength="300"
-                placeholder="서울 축제 정보를 물어보세요"
+                placeholder="서울 지역 정보를 물어보세요"
                 aria-label="챗봇 질문 입력"
                 @keydown="handleKeydown"
               />
@@ -384,7 +462,7 @@ onBeforeUnmount(() => {
               </button>
             </div>
             <div class="composer-meta">
-              <span>AI 답변은 제공된 서울 축제 데이터만 참고합니다.</span>
+              <span>지역정보 답변은 제공된 서울 데이터만 참고합니다.</span>
               <span :class="{ 'is-over': remainingCharacters < 0 }">
                 {{ remainingCharacters }}
               </span>
@@ -394,11 +472,11 @@ onBeforeUnmount(() => {
       </Transition>
 
       <div v-if="!isOpen" class="launcher-wrap">
-        <span class="launcher-tip">축제 정보가 궁금하신가요?</span>
+        <span class="launcher-tip">서울 정보가 궁금하신가요?</span>
         <button
           type="button"
           class="chat-launcher"
-          aria-label="서울 축제 ChatLLM 열기"
+          aria-label="서울 LocalHub ChatLLM 열기"
           aria-controls="festival-chat-dialog"
           :aria-expanded="isOpen"
           @click="toggleWidget"
@@ -413,13 +491,13 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .festival-chat {
-  --chat-primary: #3165ff;
+  --chat-primary: var(--lh-primary, #3165ff);
   --chat-z-index: 1200;
   position: fixed;
   right: max(22px, env(safe-area-inset-right));
   bottom: max(22px, env(safe-area-inset-bottom));
   z-index: var(--chat-z-index);
-  color: #172033;
+  color: var(--lh-ink, #172033);
   font-family:
     Inter, Pretendard, "Noto Sans KR", system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
@@ -445,12 +523,10 @@ onBeforeUnmount(() => {
   width: min(390px, calc(100vw - 32px));
   height: min(620px, calc(100vh - 126px));
   overflow: hidden;
-  border: 1px solid rgba(32, 54, 92, 0.12);
-  border-radius: 22px;
-  background: #fff;
-  box-shadow:
-    0 26px 70px rgba(24, 43, 77, 0.2),
-    0 8px 24px rgba(24, 43, 77, 0.12);
+  border: 1px solid var(--lh-line, rgba(32, 54, 92, 0.12));
+  border-radius: var(--lh-radius-lg, 24px);
+  background: var(--lh-card, #fff);
+  box-shadow: var(--lh-shadow-float, 0 28px 72px rgba(31, 51, 91, 0.18));
 }
 
 .chat-header {
@@ -627,6 +703,36 @@ onBeforeUnmount(() => {
   background: #fff8e8;
 }
 
+.suggested-questions {
+  display: grid;
+  width: 100%;
+  gap: 6px;
+}
+
+.suggested-questions button {
+  width: 100%;
+  cursor: pointer;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--chat-primary) 28%, #dfe5ef);
+  border-radius: 10px;
+  color: #405172;
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: left;
+  background: #fff;
+}
+
+.suggested-questions button:hover:not(:disabled) {
+  border-color: var(--chat-primary);
+  color: var(--chat-primary);
+  background: color-mix(in srgb, var(--chat-primary) 6%, white);
+}
+
+.suggested-questions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .message-stack time {
   color: #8a96aa;
   font-size: 10px;
@@ -709,6 +815,17 @@ onBeforeUnmount(() => {
   border-radius: 999px;
   font-size: 9px;
   font-weight: 800;
+}
+
+.source-badges {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+}
+
+.source-title-row .type-badge {
+  color: #4d5e78;
+  background: #e8edf5;
 }
 
 .status-ongoing {
@@ -816,11 +933,25 @@ onBeforeUnmount(() => {
 }
 
 .error-message {
-  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   padding: 8px 14px;
   color: #b42318;
   font-size: 11px;
   background: #fff0ee;
+}
+
+.error-message button {
+  flex: 0 0 auto;
+  cursor: pointer;
+  padding: 5px 8px;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  background: #b42318;
 }
 
 .chat-composer {

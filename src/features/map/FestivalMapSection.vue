@@ -222,8 +222,9 @@ const resetFilters = () => {
       </div>
     </header>
 
-    <!-- 필터 영역 -->
-    <div class="map-feature-filter-card">
+    <div class="map-feature-workspace">
+      <!-- 필터 영역 -->
+      <div class="map-feature-filter-card">
       <div class="map-feature-filter-header">
         <div>
           <span>축제 검색 조건</span>
@@ -297,10 +298,10 @@ const resetFilters = () => {
       >
         종료일은 시작일보다 빠를 수 없습니다.
       </p>
-    </div>
+      </div>
 
-    <!-- 지도 영역 -->
-    <div class="map-feature-card">
+      <!-- 지도 영역 -->
+      <div class="map-feature-card">
       <div class="map-feature-card-header">
         <div>
           <span class="map-feature-live-dot"></span>
@@ -335,13 +336,14 @@ const resetFilters = () => {
           </p>
         </div>
       </div>
+      </div>
     </div>
   </section>
 </template>
 
 <style scoped>
 .map-feature-section {
-  width: min(1120px, calc(100% - 40px));
+  width: min(var(--lh-content), calc(100% - 40px));
   margin: 0 auto;
   padding: 76px 0 90px;
 }
@@ -358,7 +360,7 @@ const resetFilters = () => {
 }
 
 .map-feature-kicker {
-  color: #3165ff;
+  color: var(--lh-primary);
   font-size: 13px;
   font-weight: 900;
   letter-spacing: 0.08em;
@@ -368,20 +370,20 @@ const resetFilters = () => {
 .map-feature-heading h2 {
   margin: 10px 0 12px;
 
-  color: #15213a;
+  color: var(--lh-ink);
   font-size: 36px;
   line-height: 1.25;
   letter-spacing: -0.04em;
 }
 
 .map-feature-heading h2 strong {
-  color: #3165ff;
+  color: var(--lh-primary);
 }
 
 .map-feature-heading p {
   margin: 0;
 
-  color: #69758c;
+  color: var(--lh-muted);
   font-size: 15px;
   line-height: 1.7;
 }
@@ -392,9 +394,9 @@ const resetFilters = () => {
   flex: 0 0 185px;
   padding: 18px 20px;
 
-  border: 1px solid #dfe5ef;
+  border: 1px solid var(--lh-line);
   border-radius: 18px;
-  background: #ffffff;
+  background: var(--lh-card);
 
   box-shadow:
     0 16px 42px rgba(31, 51, 91, 0.08);
@@ -410,7 +412,7 @@ const resetFilters = () => {
   display: block;
   margin: 6px 0 5px;
 
-  color: #3165ff;
+  color: var(--lh-primary);
   font-size: 30px;
   line-height: 1;
 }
@@ -426,15 +428,21 @@ const resetFilters = () => {
   font-size: 11px;
 }
 
+.map-feature-workspace {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  align-items: start;
+  gap: 24px;
+}
+
 /* 필터 카드 */
 
 .map-feature-filter-card {
-  margin-bottom: 18px;
   padding: 22px;
 
-  border: 1px solid #e1e6ef;
-  border-radius: 20px;
-  background: #ffffff;
+  border: 1px solid var(--lh-line);
+  border-radius: var(--lh-radius-lg);
+  background: var(--lh-card);
 
   box-shadow:
     0 14px 36px rgba(31, 51, 91, 0.06);
@@ -442,7 +450,7 @@ const resetFilters = () => {
 
 .map-feature-filter-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
 
   margin-bottom: 20px;
@@ -468,7 +476,7 @@ const resetFilters = () => {
 
 .map-feature-filter-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 14px;
 }
 
@@ -562,9 +570,9 @@ const resetFilters = () => {
 .map-feature-card {
   padding: 12px;
 
-  border: 1px solid #e1e6ef;
-  border-radius: 22px;
-  background: #ffffff;
+  border: 1px solid var(--lh-line);
+  border-radius: var(--lh-radius-lg);
+  background: var(--lh-card);
 
   box-shadow:
     0 22px 55px rgba(31, 51, 91, 0.12);
@@ -651,6 +659,15 @@ const resetFilters = () => {
 /* 모바일 */
 
 @media (max-width: 800px) {
+  .map-feature-section {
+    width: min(100% - 24px, var(--lh-content));
+    padding: 46px 0 64px;
+  }
+
+  .map-feature-workspace {
+    grid-template-columns: 1fr;
+  }
+
   .map-feature-header {
     align-items: stretch;
     flex-direction: column;

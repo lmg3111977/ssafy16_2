@@ -1,8 +1,20 @@
 export type ChatMode = 'llm' | 'fallback' | 'search'
 
-export interface FestivalSource {
+export type LocalHubSourceType =
+  | 'festival'
+  | 'attraction'
+  | 'culture'
+  | 'leisure'
+  | 'accommodation'
+  | 'shopping'
+  | 'course'
+  | 'community'
+
+export interface LocalHubSource {
   contentId: string
+  type: LocalHubSourceType
   title: string
+  summary: string | null
   address: string | null
   eventPlace: string | null
   startDate: string | null
@@ -18,13 +30,31 @@ export interface FestivalSource {
   programExcerpt: string | null
 }
 
+export type FestivalSource = LocalHubSource
+
+export interface ChatContext {
+  recentMessages?: Array<{
+    role: 'user' | 'assistant'
+    content: string
+  }>
+  sourceIds?: string[]
+  communityPosts?: Array<{
+    id: string
+    title: string
+    content: string
+    createdAt: string
+  }>
+}
+
 export interface FestivalChatRequest {
   question: string
+  context?: ChatContext
 }
 
 export interface FestivalChatResponse {
   reply: string
-  sources: FestivalSource[]
+  sources: LocalHubSource[]
+  suggestions?: string[]
   meta: {
     mode: ChatMode
     model?: string

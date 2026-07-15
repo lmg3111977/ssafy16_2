@@ -1,9 +1,12 @@
 export type {
   ChatMode,
+  ChatContext,
   FestivalChatErrorBody,
   FestivalChatRequest,
   FestivalChatResponse,
   FestivalSource,
+  LocalHubSource,
+  LocalHubSourceType,
 } from '../../shared/chat-contract'
 
 import type { ChatMode, FestivalSource } from '../../shared/chat-contract'

@@ -165,6 +165,7 @@ function extractIntent(question: string, today: string): SearchIntent {
   const normalized = compact(question)
   const year = Number(today.slice(0, 4))
   const currentMonth = Number(today.slice(4, 6))
+  const yearMonthMatch = question.match(/(\d{4})년\s*(1[0-2]|0?[1-9])월/)
   const monthMatch = question.match(/(?:^|\D)(1[0-2]|0?[1-9])월/)
   const district = SEOUL_DISTRICTS.find((name) => question.includes(name))
 
@@ -175,10 +176,25 @@ function extractIntent(question: string, today: string): SearchIntent {
 
   if (normalized.includes('오늘')) {
     intent.dateRange = { start: today, end: today }
+  } else if (normalized.includes('내일')) {
+    const tomorrow = addDays(today, 1)
+    intent.dateRange = { start: tomorrow, end: tomorrow }
+  } else if (normalized.includes('이번주') && !normalized.includes('이번주말')) {
+    intent.dateRange = { start: today, end: addDays(today, 6) }
   } else if (normalized.includes('이번주말') || normalized.includes('주말')) {
     intent.dateRange = getWeekendRange(today)
+  } else if (normalized.includes('다음달')) {
+    const next = currentMonth === 12
+      ? { year: year + 1, month: 1 }
+      : { year, month: currentMonth + 1 }
+    intent.dateRange = getMonthRange(next.year, next.month)
   } else if (normalized.includes('이번달')) {
     intent.dateRange = getMonthRange(year, currentMonth)
+  } else if (yearMonthMatch) {
+    const explicitYear = Number(yearMonthMatch[1])
+    const month = Number(yearMonthMatch[2])
+    intent.month = month
+    intent.dateRange = getMonthRange(explicitYear, month)
   } else if (monthMatch) {
     const month = Number(monthMatch[1])
     intent.month = month
@@ -197,7 +213,17 @@ function extractIntent(question: string, today: string): SearchIntent {
 }
 
 function extractTerms(question: string): string[] {
-  return question
+  const intentStripped = SEOUL_DISTRICTS.reduce(
+    (text, district) =>
+      text.replace(new RegExp(`${district}(?:에서|에는|의|은|는|이|가|을|를|도)?`, 'g'), ' '),
+    question,
+  )
+    .replace(/\d{4}년\s*(?:1[0-2]|0?[1-9])월(?:에|의)?/g, ' ')
+    .replace(/(?:1[0-2]|0?[1-9])월(?:에|의)?/g, ' ')
+    .replace(/(?:오늘|내일|이번\s*주말?|주말|이번\s*달|다음\s*달)(?:에|의)?/g, ' ')
+    .replace(/무료(?:인|인\s*곳|인\s*행사|한|로|인\s*축제)?/g, ' ')
+
+  return intentStripped
     .toLocaleLowerCase('ko-KR')
     .split(/[\s,./!?()\[\]{}:;"'~+\-_]+/)
     .map((term) => term.trim())
@@ -238,7 +264,9 @@ function toSource(item: RawFestivalItem, today: string): FestivalSource {
 
   return {
     contentId: item.contentid,
+    type: 'festival',
     title: clean(item.title),
+    summary: program ? `${program.slice(0, 240)}${program.length > 240 ? '…' : ''}` : null,
     address: address || null,
     eventPlace: clean(item.eventplace) || null,
     startDate: formatDateKey(item.eventstartdate),

@@ -1,9 +1,11 @@
+@import './tokens.css';
+
 :root {
   font-family:
     Inter, Pretendard, "Noto Sans KR", system-ui, -apple-system, BlinkMacSystemFont,
     "Segoe UI", sans-serif;
-  color: #172033;
-  background: #f7f9fc;
+  color: var(--lh-ink);
+  background: var(--lh-page);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -22,17 +24,36 @@ body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
+  background: var(--lh-page);
 }
 
 button,
 textarea,
-input {
+input,
+select {
   font: inherit;
 }
 
 button:focus-visible,
 textarea:focus-visible,
+input:focus-visible,
+select:focus-visible,
 a:focus-visible {
-  outline: 3px solid rgba(49, 101, 255, 0.28);
-  outline-offset: 2px;
+  outline: 3px solid rgba(49, 101, 255, 0.3);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

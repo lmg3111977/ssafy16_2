@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { askFestivalChat, FestivalChatApiError } from './api'
 import { readPublicCommunityContext } from './community-context'
+import { normalizeChatSuggestions } from './suggestions'
 import ChatBotIcon from './ChatBotIcon.vue'
 import type { ChatContext, ChatMessage, LocalHubSource, LocalHubSourceType } from './types'
 
@@ -149,6 +150,7 @@ function createAssistantMessage(
   sources: LocalHubSource[] = [],
   mode: ChatMessage['mode'] = 'llm',
   warning?: string,
+  suggestions: string[] = [],
 ): ChatMessage {
   return {
     id: createId(),
@@ -157,6 +159,7 @@ function createAssistantMessage(
     sources,
     mode,
     warning,
+    suggestions,
     createdAt: new Date(),
   }
 }
@@ -215,6 +218,7 @@ async function sendQuestion(questionOverride?: string, appendUser = true): Promi
         result.sources,
         result.meta.mode,
         result.warning,
+        normalizeChatSuggestions(result.suggestions),
       ),
     )
     messages.value = messages.value.slice(-50)
@@ -325,6 +329,18 @@ onBeforeUnmount(() => {
                 <p v-if="message.warning" class="message-warning">
                   {{ message.warning }}
                 </p>
+
+                <div v-if="message.suggestions?.length" class="suggested-questions">
+                  <button
+                    v-for="suggestion in message.suggestions"
+                    :key="suggestion"
+                    type="button"
+                    :disabled="isLoading"
+                    @click="sendQuestion(suggestion)"
+                  >
+                    {{ suggestion }}
+                  </button>
+                </div>
 
                 <details
                   v-if="showSources && message.sources?.length"
@@ -687,6 +703,36 @@ onBeforeUnmount(() => {
   font-size: 10px;
   line-height: 1.45;
   background: #fff8e8;
+}
+
+.suggested-questions {
+  display: grid;
+  width: 100%;
+  gap: 6px;
+}
+
+.suggested-questions button {
+  width: 100%;
+  cursor: pointer;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--chat-primary) 28%, #dfe5ef);
+  border-radius: 10px;
+  color: #405172;
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: left;
+  background: #fff;
+}
+
+.suggested-questions button:hover:not(:disabled) {
+  border-color: var(--chat-primary);
+  color: var(--chat-primary);
+  background: color-mix(in srgb, var(--chat-primary) 6%, white);
+}
+
+.suggested-questions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .message-stack time {

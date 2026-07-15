@@ -19,4 +19,5 @@ export interface ChatMessage {
   sources?: FestivalSource[]
   mode?: ChatMode
   warning?: string
+  suggestions?: string[]
 }

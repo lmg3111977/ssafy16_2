@@ -204,8 +204,9 @@ describe('Netlify chat Function', () => {
     ].join('\n')
 
     expect(makeReplyConcise(reply)).toBe(
-      '시장 세 곳을 확인했습니다. 주소는 근거 카드에서 볼 수 있습니다. 세부 품목은 제공되지 않습니다.',
+      '시장 세 곳을 확인했습니다.\n주소는 근거 카드에서 볼 수 있습니다.\n세부 품목은 제공되지 않습니다.',
     )
+    expect(makeReplyConcise('한 문장입니다.')).toBe('한 문장입니다.')
     expect(makeReplyConcise('가'.repeat(500)).length).toBeLessThanOrEqual(420)
   })
 

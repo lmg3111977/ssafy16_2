@@ -143,7 +143,7 @@ export function makeReplyConcise(reply: string): string {
     .map((part) => part.trim())
     .filter(Boolean)
     .slice(0, 3)
-    .join(' ')
+    .join('\n')
 
   if (result.length > 420) {
     result = `${result.slice(0, 419).trimEnd()}…`

@@ -47,7 +47,7 @@ export function createFallbackAnswer(sources: LocalHubSource[]): string {
     return `${index + 1}. ${source.title}\n${details.join('\n')}`
   })
 
-  return `조건에 맞는 서울 지역 정보 ${sources.length}건을 찾았습니다.\n\n${list.join('\n\n')}`
+  return `조건에 맞는 서울 지역 정보 ${sources.length}건을 찾았습니다.\n${list.join('\n')}`
 }
 
 export function createProjectChatFallback(): string {

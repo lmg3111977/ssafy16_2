@@ -8,7 +8,7 @@ import {
 } from '../community/api'
 import type { CommunityPost } from '../../shared/community-contract'
 
-const endpoint = '/api/community'
+const storageKey = 'localhub-community-posts'
 const isLoading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
@@ -75,7 +75,7 @@ async function loadPosts(): Promise<void> {
   isLoading.value = true
   errorMessage.value = ''
   try {
-    posts.value = await fetchCommunityPosts(endpoint)
+    posts.value = await fetchCommunityPosts(storageKey)
   } catch (error) {
     errorMessage.value =
       error instanceof Error
@@ -92,7 +92,7 @@ async function submitPost(): Promise<void> {
   errorMessage.value = ''
   successMessage.value = ''
   try {
-    const newPost = await createCommunityPost(endpoint, {
+    const newPost = await createCommunityPost(storageKey, {
       title: draftTitle.value.trim(),
       content: draftContent.value.trim(),
       password: draftPassword.value,
@@ -116,7 +116,7 @@ async function saveEdit(): Promise<void> {
   errorMessage.value = ''
   successMessage.value = ''
   try {
-    const updatedPost = await updateCommunityPost(endpoint, editingPostId.value, {
+    const updatedPost = await updateCommunityPost(storageKey, editingPostId.value, {
       title: editTitle.value.trim(),
       content: editContent.value.trim(),
       password: editPassword.value,
@@ -143,7 +143,7 @@ async function confirmDelete(): Promise<void> {
   errorMessage.value = ''
   successMessage.value = ''
   try {
-    await deleteCommunityPost(endpoint, deletingPostId.value, {
+    await deleteCommunityPost(storageKey, deletingPostId.value, {
       password: deletePassword.value,
     })
     posts.value = posts.value.filter((post) => post.id !== deletingPostId.value)

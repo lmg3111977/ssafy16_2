@@ -1,5 +1,4 @@
 import type {
-  ApiErrorBody,
   CommunityCreateRequest,
   CommunityDeleteRequest,
   CommunityPost,
@@ -18,74 +17,108 @@ export class CommunityApiError extends Error {
   }
 }
 
-async function parseResponse(response: Response): Promise<unknown> {
-  const text = await response.text()
-  if (!text) return null
+interface StoredCommunityPost extends CommunityPost {
+  password: string
+}
+
+function isStoredCommunityPost(value: unknown): value is StoredCommunityPost {
+  if (typeof value !== 'object' || value === null) return false
+
+  const post = value as Record<string, unknown>
+  return (
+    typeof post.id === 'string' &&
+    typeof post.title === 'string' &&
+    typeof post.content === 'string' &&
+    typeof post.createdAt === 'string' &&
+    typeof post.updatedAt === 'string' &&
+    typeof post.password === 'string'
+  )
+}
+
+function readStoredPosts(storageKey: string): StoredCommunityPost[] {
+  const raw = localStorage.getItem(storageKey)
+  if (!raw) return []
+
   try {
-    return JSON.parse(text) as unknown
+    const value = JSON.parse(raw) as unknown
+    return Array.isArray(value) ? value.filter(isStoredCommunityPost) : []
   } catch {
-    return null
+    return []
   }
 }
 
-async function handleError(response: Response): Promise<never> {
-  const body = (await parseResponse(response)) as ApiErrorBody | null
-  const message = body?.error ?? '커뮤니티 서버에 요청하지 못했습니다.'
-  const code = body?.code
-  throw new CommunityApiError(message, response.status, code)
+function writeStoredPosts(storageKey: string, posts: StoredCommunityPost[]): void {
+  localStorage.setItem(storageKey, JSON.stringify(posts))
 }
 
-async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(endpoint, {
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    ...options,
-  })
-
-  if (!response.ok) {
-    await handleError(response)
-  }
-
-  return (await response.json()) as T
+function toPublicPost({ password: _password, ...post }: StoredCommunityPost): CommunityPost {
+  return post
 }
 
-export async function fetchCommunityPosts(endpoint: string): Promise<CommunityPost[]> {
-  const result = await request<{ posts: CommunityPost[] }>(endpoint, {
-    method: 'GET',
-  })
-  return result.posts
+export async function fetchCommunityPosts(storageKey: string): Promise<CommunityPost[]> {
+  return readStoredPosts(storageKey).map(toPublicPost)
 }
 
 export async function createCommunityPost(
-  endpoint: string,
+  storageKey: string,
   body: CommunityCreateRequest,
 ): Promise<CommunityPost> {
-  return request<CommunityPost>(endpoint, {
-    method: 'POST',
-    body: JSON.stringify(body),
-  })
+  const now = new Date().toISOString()
+  const post: StoredCommunityPost = {
+    id: crypto.randomUUID(),
+    title: body.title.trim(),
+    content: body.content.trim(),
+    createdAt: now,
+    updatedAt: now,
+    password: body.password,
+  }
+
+  writeStoredPosts(storageKey, [post, ...readStoredPosts(storageKey)])
+  return toPublicPost(post)
 }
 
 export async function updateCommunityPost(
-  endpoint: string,
+  storageKey: string,
   id: string,
   body: CommunityUpdateRequest,
 ): Promise<CommunityPost> {
-  return request<CommunityPost>(`${endpoint}/${encodeURIComponent(id)}`, {
-    method: 'PUT',
-    body: JSON.stringify(body),
-  })
+  const posts = readStoredPosts(storageKey)
+  const index = posts.findIndex((post) => post.id === id)
+  if (index === -1) {
+    throw new CommunityApiError('해당 게시글을 찾을 수 없습니다.', 404, 'NOT_FOUND')
+  }
+
+  const existing = posts[index]
+  if (existing.password !== body.password) {
+    throw new CommunityApiError('비밀번호가 일치하지 않습니다.', 403, 'INVALID_PASSWORD')
+  }
+
+  const updated: StoredCommunityPost = {
+    ...existing,
+    title: body.title.trim(),
+    content: body.content.trim(),
+    updatedAt: new Date().toISOString(),
+  }
+  posts[index] = updated
+  writeStoredPosts(storageKey, posts)
+  return toPublicPost(updated)
 }
 
 export async function deleteCommunityPost(
-  endpoint: string,
+  storageKey: string,
   id: string,
   body: CommunityDeleteRequest,
 ): Promise<void> {
-  await request<void>(`${endpoint}/${encodeURIComponent(id)}`, {
-    method: 'DELETE',
-    body: JSON.stringify(body),
-  })
+  const posts = readStoredPosts(storageKey)
+  const index = posts.findIndex((post) => post.id === id)
+  if (index === -1) {
+    throw new CommunityApiError('해당 게시글을 찾을 수 없습니다.', 404, 'NOT_FOUND')
+  }
+
+  if (posts[index].password !== body.password) {
+    throw new CommunityApiError('비밀번호가 일치하지 않습니다.', 403, 'INVALID_PASSWORD')
+  }
+
+  posts.splice(index, 1)
+  writeStoredPosts(storageKey, posts)
 }

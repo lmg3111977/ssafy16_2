@@ -56,4 +56,11 @@ describe('챗봇 질문 라우터', () => {
   it('고유 명칭과 일정 질문은 전체 프로젝트 데이터를 검색한다', () => {
     expect(routeChatQuestion('문학주간 2026 일정 알려줘').kind).toBe('project-data')
   })
+
+  it('제공 데이터에 없는 음식점 질문은 지원 범위 밖으로 분류한다', () => {
+    expect(routeChatQuestion('강남구 음식점 추천해줘')).toEqual({
+      kind: 'out-of-scope',
+      sourceTypes: [],
+    })
+  })
 })

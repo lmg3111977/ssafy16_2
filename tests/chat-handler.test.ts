@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import handler, { createChatHandler } from '../netlify/functions/chat.mts'
+import handler, {
+  createChatHandler,
+  makeReplyConcise,
+} from '../netlify/functions/chat.mts'
 import type { FestivalChatResponse } from '../shared/chat-contract'
 
 const previousApiKey = process.env.OPENAI_API_KEY
@@ -155,6 +158,55 @@ describe('Netlify chat Function', () => {
     expect(calls).toBe(0)
     expect(body.sources).toEqual([])
     expect(body.reply).toContain('서울 지역 정보')
+    expect(body.suggestions).toHaveLength(3)
+  })
+
+  it('미지원 지역정보 질문에 지역을 보존한 추천 질문 3개를 반환한다', async () => {
+    const response = await handler(post({ question: '강남구 음식점 추천해줘' }))
+    const body = (await response.json()) as FestivalChatResponse
+
+    expect(body.sources).toEqual([])
+    expect(body.suggestions).toEqual([
+      '강남구 관광지 알려줘',
+      '강남구 쇼핑 장소 알려줘',
+      '강남구 숙박 시설 알려줘',
+    ])
+  })
+
+  it('검색 결과가 없으면 OpenAI 호출 없이 추천 질문을 반환한다', async () => {
+    process.env.OPENAI_API_KEY = 'test-key'
+    process.env.CHATBOT_FORCE_FALLBACK = 'false'
+    let calls = 0
+    const testHandler = createChatHandler({
+      generateReply: async () => {
+        calls += 1
+        return { reply: '호출됨' }
+      },
+    })
+
+    const response = await testHandler(post({
+      question: '서울 존재하지않는장소12345 알려줘',
+    }))
+    const body = (await response.json()) as FestivalChatResponse
+
+    expect(calls).toBe(0)
+    expect(body.meta.resultCount).toBe(0)
+    expect(body.suggestions).toHaveLength(3)
+  })
+
+  it('장황한 후속 선택 메뉴와 네 번째 문장을 제거한다', () => {
+    const reply = [
+      '시장 세 곳을 확인했습니다.',
+      '주소는 근거 카드에서 볼 수 있습니다.',
+      '세부 품목은 제공되지 않습니다.',
+      '원하시면 다음 중 선택해 주세요.',
+      '- 특정 시장 자세히 확인',
+    ].join('\n')
+
+    expect(makeReplyConcise(reply)).toBe(
+      '시장 세 곳을 확인했습니다. 주소는 근거 카드에서 볼 수 있습니다. 세부 품목은 제공되지 않습니다.',
+    )
+    expect(makeReplyConcise('가'.repeat(500)).length).toBeLessThanOrEqual(420)
   })
 
   it('프로젝트 관련 일상 대화는 검색 없이 LLM을 호출한다', async () => {

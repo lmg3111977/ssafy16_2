@@ -56,6 +56,38 @@ describe('서울 축제 검색', () => {
     ).toBe(true)
   })
 
+  it.each(['9월에 축제', '2026년 9월 축제'])(
+    '자연어 날짜 표현 %s을 인식한다',
+    (question) => {
+      const results = searchFestivals(question, { today: TODAY, limit: 8 })
+
+      expect(results.length).toBeGreaterThan(0)
+      expect(
+        results.every((result) => {
+          const start = result.startDate?.replaceAll('-', '') ?? ''
+          const end = result.endDate?.replaceAll('-', '') || start
+          return start <= '20260930' && end >= '20260901'
+        }),
+      ).toBe(true)
+    },
+  )
+
+  it('조사가 붙은 무료·자치구 조건을 인식한다', () => {
+    const results = searchFestivals('종로구에서 무료인 축제', {
+      today: TODAY,
+      limit: 8,
+    })
+
+    expect(results.length).toBeGreaterThan(0)
+    expect(
+      results.every(
+        (result) =>
+          `${result.address ?? ''} ${result.eventPlace ?? ''}`.includes('종로구') &&
+          /무료|0원/.test(result.fee ?? ''),
+      ),
+    ).toBe(true)
+  })
+
   it('존재하지 않는 고유 검색어에는 결과를 반환하지 않는다', () => {
     const results = searchFestivals('존재하지않는축제이름12345 알려줘', {
       today: TODAY,

@@ -19,23 +19,7 @@ jobs:
           node-version: 22
 
       - name: Restore festival data
-        id: restore
-        continue-on-error: true
-        run: node scripts/restore-data.mjs > restore.log 2>&1
-
-      - name: Upload restore diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: restore-diagnostics
-          path: restore.log
-          retention-days: 1
-
-      - name: Stop when data restoration failed
-        if: steps.restore.outcome == 'failure'
-        run: |
-          cat restore.log
-          exit 1
+        run: node scripts/restore-data.mjs
 
       - name: Install dependencies
         run: npm install --ignore-scripts

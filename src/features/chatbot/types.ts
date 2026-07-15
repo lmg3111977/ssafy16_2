@@ -17,10 +17,20 @@ export interface FestivalSource {
   status: 'ongoing' | 'upcoming' | 'ended' | 'unknown'
 }
 
+export interface FestivalChatContext {
+  contentIds: string[]
+}
+
+export interface FestivalChatRequest {
+  question: string
+  context?: FestivalChatContext
+}
+
 export interface ChatResponseMeta {
   llmUsed: boolean
   matchedCount: number
   model: string | null
+  contextUsed: boolean
   warning?: string
 }
 

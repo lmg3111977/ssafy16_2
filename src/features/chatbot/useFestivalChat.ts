@@ -1,10 +1,13 @@
 import { computed, ref } from 'vue'
 import { requestFestivalAnswer } from './api'
-import type { ChatMessage } from './types'
+import type {
+  ChatMessage,
+  FestivalChatContext,
+} from './types'
 
 const WELCOME_MESSAGE = [
-  '\uC548\uB155\uD558\uC138\uC694. LocalHub \uC11C\uC6B8 \uCD95\uC81C \uC548\uB0B4 \uCC57\uBD07\uC785\uB2C8\uB2E4.',
-  '\uCD95\uC81C\uBA85, \uC790\uCE58\uAD6C, \uC6D4, \uBB34\uB8CC \uC5EC\uBD80\uB97C \uBB3C\uC5B4\uBCF4\uC138\uC694.',
+  '안녕하세요. LocalHub 서울 축제 안내 챗봇입니다.',
+  '축제명, 자치구, 월, 무료 여부를 물어보세요.',
 ].join('\n')
 
 function createId(): string {
@@ -24,6 +27,26 @@ function createWelcomeMessage(): ChatMessage {
   }
 }
 
+function getLatestFestivalContext(
+  currentMessages: readonly ChatMessage[],
+): FestivalChatContext | undefined {
+  const latestGroundedAnswer = [...currentMessages]
+    .reverse()
+    .find(
+      (message) =>
+        message.role === 'assistant' &&
+        Boolean(message.sources?.length),
+    )
+
+  const contentIds = [...new Set(
+    latestGroundedAnswer?.sources
+      ?.map((source) => source.contentId.trim())
+      .filter(Boolean) ?? [],
+  )].slice(0, 5)
+
+  return contentIds.length > 0 ? { contentIds } : undefined
+}
+
 export function useFestivalChat(getEndpoint: () => string) {
   const input = ref('')
   const messages = ref<ChatMessage[]>([createWelcomeMessage()])
@@ -38,6 +61,8 @@ export function useFestivalChat(getEndpoint: () => string) {
   async function send(questionOverride?: string): Promise<void> {
     const question = (questionOverride ?? input.value).trim()
     if (!question || isSending.value) return
+
+    const context = getLatestFestivalContext(messages.value)
 
     error.value = ''
     input.value = ''
@@ -55,6 +80,7 @@ export function useFestivalChat(getEndpoint: () => string) {
       const result = await requestFestivalAnswer(
         getEndpoint(),
         question,
+        context,
         activeController.signal,
       )
 
@@ -76,12 +102,12 @@ export function useFestivalChat(getEndpoint: () => string) {
 
       const message = caught instanceof Error
         ? caught.message
-        : '\uC54C \uC218 \uC5C6\uB294 \uC624\uB958\uAC00 \uBC1C\uC0DD\uD588\uC2B5\uB2C8\uB2E4.'
+        : '알 수 없는 오류가 발생했습니다.'
       error.value = message
       messages.value.push({
         id: createId(),
         role: 'assistant',
-        content: `\uC624\uB958: ${message}`,
+        content: `오류: ${message}`,
         createdAt: Date.now(),
         mode: 'search',
         isError: true,

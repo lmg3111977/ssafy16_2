@@ -54,6 +54,7 @@ export interface FestivalChatRequest {
 export interface FestivalChatResponse {
   reply: string
   sources: LocalHubSource[]
+  suggestions?: string[]
   meta: {
     mode: ChatMode
     model?: string

@@ -238,7 +238,9 @@ function toSource(item: RawFestivalItem, today: string): FestivalSource {
 
   return {
     contentId: item.contentid,
+    type: 'festival',
     title: clean(item.title),
+    summary: program ? `${program.slice(0, 240)}${program.length > 240 ? '…' : ''}` : null,
     address: address || null,
     eventPlace: clean(item.eventplace) || null,
     startDate: formatDateKey(item.eventstartdate),
